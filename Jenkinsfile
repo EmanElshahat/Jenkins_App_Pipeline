@@ -1,62 +1,51 @@
+@Library('jenkins-lib') _
+
 pipeline {
     agent any
 
     environment {
         IMAGE_NAME = "emanabosamra/kubernets-app"
+        NAMESPACE  = "ivolve"
     }
 
     stages {
-        stage('Unit Test') {
+
+        stage('Test & Build App') {
             steps {
-                echo 'Running Unit Tests with Maven...'
-                sh 'mvn test'
+                testAndBuildApp()
             }
         }
 
-        stage('Build App') {
+        stage('Build & Push Docker Image') {
             steps {
-                echo 'Building App with Maven...'
-                sh 'mvn package'
+                buildAndPushImage(IMAGE_NAME, BUILD_NUMBER)
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Scan Image') {
             steps {
-                echo "Building Docker Image ${IMAGE_NAME}:${BUILD_NUMBER}"
-                script {
-                    docker.build("${IMAGE_NAME}:${BUILD_NUMBER}")
-                }
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                echo "Logging in to Docker Hub and pushing ${IMAGE_NAME}:${BUILD_NUMBER}"
-                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                    sh "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
-                }
+                echo 'Scanning Docker Image...'
+                sh "trivy image ${IMAGE_NAME}:${BUILD_NUMBER}"
             }
         }
 
         stage('Delete Local Docker Image') {
             steps {
-                echo "Deleting local Docker image ${IMAGE_NAME}:${BUILD_NUMBER}"
+                echo "Deleting local Docker image"
                 sh "docker rmi ${IMAGE_NAME}:${BUILD_NUMBER} || true"
             }
         }
 
         stage('Update deployment.yaml') {
             steps {
-                echo 'Updating deployment.yaml with new image...'
+                echo 'Updating deployment.yaml with new image'
                 sh "sed -i 's|IMAGE_PLACEHOLDER|${IMAGE_NAME}:${BUILD_NUMBER}|' deployment.yaml"
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                echo 'Deploying to Kubernetes cluster...'
-                sh 'kubectl apply -f deployment.yaml -n ivolve'
+                deployK8s(NAMESPACE)
             }
         }
     }
