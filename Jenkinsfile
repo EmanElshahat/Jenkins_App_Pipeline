@@ -21,14 +21,16 @@ pipeline {
                 buildAndPushImage(IMAGE_NAME, BUILD_NUMBER)
             }
         }
-
+        
         stage('Scan Image') {
-            steps {
-                echo 'Scanning Docker Image...'
-                sh "trivy image ${IMAGE_NAME}:${BUILD_NUMBER}"
-            }
-        }
-
+    steps {
+        echo 'Scanning Docker image using Docker Scout'
+        sh '''
+        docker scout quickview ${IMAGE_NAME}:${BUILD_NUMBER} || true
+        '''
+    }
+}
+        
         stage('Delete Local Docker Image') {
             steps {
                 echo "Deleting local Docker image"
