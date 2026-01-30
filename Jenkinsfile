@@ -24,14 +24,16 @@ pipeline {
 
         stage('Scan Image') {
             steps {
-                echo 'Scanning Docker Image...'
-                sh "trivy image ${IMAGE_NAME}:${BUILD_NUMBER}"
+                echo 'Scanning Docker image using Docker Scout'
+                sh """
+                docker scout quickview ${IMAGE_NAME}:${BUILD_NUMBER} || true
+                """
             }
         }
 
         stage('Delete Local Docker Image') {
             steps {
-                echo "Deleting local Docker image"
+                echo 'Deleting local Docker image'
                 sh "docker rmi ${IMAGE_NAME}:${BUILD_NUMBER} || true"
             }
         }
