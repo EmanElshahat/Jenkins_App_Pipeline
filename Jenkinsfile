@@ -5,63 +5,65 @@ pipeline {
 
     environment {
         IMAGE_NAME = "emanabosamra/kubernets-app"
-        NAMESPACE  = "ivolve"
+        IMAGE_TAG  = "${BUILD_NUMBER}"
+        GIT_REPO   = "https://github.com/Ibrahim-Adel15/Jenkins_App.git"
+        GIT_BRANCH = "main"
     }
 
     stages {
 
-        stage('Test & Build App') {
+        stage('Build App') {
             steps {
                 testAndBuildApp()
             }
         }
 
-        stage('Build & Push Docker Image') {
+        stage('Build Docker Image') {
             steps {
-                buildAndPushImage(IMAGE_NAME, BUILD_NUMBER)
+                buildDockerImage("${IMAGE_NAME}:${IMAGE_TAG}")
             }
         }
-        
-        stage('Scan Image') {
-    steps {
-        echo 'Scanning Docker image using Docker Scout'
-        sh '''
-        docker scout quickview ${IMAGE_NAME}:${BUILD_NUMBER} || true
-        '''
-    }
-}
-        
+
+        stage('Push Docker Image') {
+            steps {
+                pushDockerImage("${IMAGE_NAME}:${IMAGE_TAG}")
+            }
+        }
+
         stage('Delete Local Docker Image') {
             steps {
-                echo "Deleting local Docker image"
-                sh "docker rmi ${IMAGE_NAME}:${BUILD_NUMBER} || true"
+                sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG} || true"
             }
         }
 
         stage('Update deployment.yaml') {
             steps {
-                echo 'Updating deployment.yaml with new image'
-                sh "sed -i 's|IMAGE_PLACEHOLDER|${IMAGE_NAME}:${BUILD_NUMBER}|' deployment.yaml"
+                sh """
+                sed -i 's|image:.*|image: ${IMAGE_NAME}:${IMAGE_TAG}|' deployment.yaml
+                """
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Commit & Push Git Changes') {
             steps {
-                deployK8s(NAMESPACE)
+                sh """
+                git config user.email "jenkins@ci.com"
+                git config user.name "Jenkins CI"
+
+                git add deployment.yaml
+                git commit -m "Update image to ${IMAGE_NAME}:${IMAGE_TAG}" || echo "No changes to commit"
+                git push origin ${GIT_BRANCH}
+                """
             }
         }
     }
 
     post {
-        always {
-            echo 'Pipeline finished (always runs)'
-        }
         success {
-            echo 'Pipeline succeeded!'
+            echo "Git updated successfully — ArgoCD will sync automatically 🚀"
         }
         failure {
-            echo 'Pipeline failed!'
+            echo "Pipeline failed ❌"
         }
     }
 }
-
