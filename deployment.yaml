@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: jenkins-app
-          image: IMAGE_PLACEHOLDER
+          image: emanabosamra/kubernets-app:latest
           ports:
             - containerPort: 3000
 
