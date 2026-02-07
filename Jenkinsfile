@@ -1,14 +1,33 @@
 @Library('shared-jenkins') _
 
 pipeline {
-    agent any
+    agent { label 'k8s-agent' }
 
     environment {
         IMAGE_NAME = "emanabosamra/kubernets-app"
-        NAMESPACE  = "ivolve"
     }
 
     stages {
+
+        stage('Select Namespace') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'dev') {
+                        env.NAMESPACE = 'dev'
+                    }
+                    else if (env.BRANCH_NAME == 'stag') {
+                        env.NAMESPACE = 'stag'
+                    }
+                    else if (env.BRANCH_NAME == 'prod') {
+                        env.NAMESPACE = 'prod'
+                    }
+                    else {
+                        error "Unsupported branch: ${env.BRANCH_NAME}"
+                    }
+                    echo "Deploying branch ${env.BRANCH_NAME} to namespace ${env.NAMESPACE}"
+                }
+            }
+        }
 
         stage('Build App') {
             steps {
@@ -22,34 +41,16 @@ pipeline {
             }
         }
 
-        stage('Delete Local Docker Image') {
+        stage('Deploy to Kubernetes') {
             steps {
-                sh "docker rmi ${IMAGE_NAME}:${BUILD_NUMBER} || true"
-            }
-        }
-
-        stage('Update deployment.yaml') {
-            steps {
-                sh "sed -i 's|IMAGE_PLACEHOLDER|${IMAGE_NAME}:${BUILD_NUMBER}|' k8s/deployment.yaml"
-            }
-        }
-
-        stage('Push to Git') {
-            steps {
-                sh """
-                    git config user.email "jenkins@ci.com"
-                    git config user.name "Jenkins CI"
-                    git add k8s/deployment.yaml
-                    git commit -m "Update deployment image to ${IMAGE_NAME}:${BUILD_NUMBER}"
-                    git push origin main
-                """
+                deployK8s(NAMESPACE)
             }
         }
     }
 
     post {
         always {
-            echo 'Pipeline finished'
+            echo "Deployment finished for ${env.BRANCH_NAME} → ${env.NAMESPACE}"
         }
     }
 }
