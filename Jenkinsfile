@@ -1,7 +1,7 @@
 @Library('shared-jenkins') _
 
 pipeline {
-    agent { label 'k8s-agent' }
+    agent any
 
     environment {
         IMAGE_NAME = "emanabosamra/kubernets-app"
