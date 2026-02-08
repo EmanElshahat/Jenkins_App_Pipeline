@@ -18,7 +18,7 @@ pipeline {
                     else if (env.BRANCH_NAME == 'stag') {
                         env.NAMESPACE = 'stag'
                     }
-                    else if (env.BRANCH_NAME == 'prod') {
+                    else if (env.BRANCH_NAME == 'prod'|| env.BRANCH_NAME == 'main') {
                         env.NAMESPACE = 'prod'
                     }
                     else {
